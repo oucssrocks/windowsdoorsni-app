@@ -189,6 +189,7 @@ function renderJobs() {
       <td><strong>${j.name}</strong>${j.address ? `<br><span style="font-size:11px;color:var(--muted)">${j.address}</span>`:''}</td>
       <td>${j.phone ? `<span class="mono" style="font-size:12px">${j.phone}</span>`:''} ${j.email ? `<br><span style="font-size:11px;color:var(--muted)">${j.email}</span>`:''}${!j.phone&&!j.email?'—':''}</td>
       <td><span class="mono">${fmtDate(j.date)}</span></td>
+      <td><span class="mono">${fmtDate(j.bookedDate)}</span></td>
       <td style="max-width:180px;font-size:12px">${j.products||'—'}</td>
       <td>${statusBadge(j.status)}</td>
       <td style="max-width:160px;font-size:12px;color:var(--muted)">${j.notes||''}</td>
@@ -212,12 +213,13 @@ function openJobModal(id) {
     document.getElementById('j-phone').value   = j.phone||'';
     document.getElementById('j-email').value   = j.email||'';
     document.getElementById('j-date').value    = j.date||'';
+    document.getElementById('j-booked').value  = j.bookedDate||'';
     document.getElementById('j-status').value  = j.status||'quoted';
     document.getElementById('j-address').value = j.address||'';
     document.getElementById('j-products').value= j.products||'';
     document.getElementById('j-notes').value   = j.notes||'';
   } else {
-    ['j-name','j-ref','j-phone','j-email','j-date','j-address','j-products','j-notes'].forEach(id => document.getElementById(id).value='');
+    ['j-name','j-ref','j-phone','j-email','j-date','j-booked','j-address','j-products','j-notes'].forEach(id => document.getElementById(id).value='');
     document.getElementById('j-status').value='quoted';
   }
   m.classList.add('open');
@@ -246,15 +248,16 @@ function saveJob() {
 
 function getJobForm() {
   return {
-    name:     document.getElementById('j-name').value.trim(),
-    ref:      document.getElementById('j-ref').value.trim(),
-    phone:    document.getElementById('j-phone').value.trim(),
-    email:    document.getElementById('j-email').value.trim(),
-    date:     document.getElementById('j-date').value,
-    status:   document.getElementById('j-status').value,
-    address:  document.getElementById('j-address').value.trim(),
-    products: document.getElementById('j-products').value.trim(),
-    notes:    document.getElementById('j-notes').value.trim(),
+    name:       document.getElementById('j-name').value.trim(),
+    ref:        document.getElementById('j-ref').value.trim(),
+    phone:      document.getElementById('j-phone').value.trim(),
+    email:      document.getElementById('j-email').value.trim(),
+    date:       document.getElementById('j-date').value,
+    bookedDate: document.getElementById('j-booked').value,
+    status:     document.getElementById('j-status').value,
+    address:    document.getElementById('j-address').value.trim(),
+    products:   document.getElementById('j-products').value.trim(),
+    notes:      document.getElementById('j-notes').value.trim(),
   };
 }
 
