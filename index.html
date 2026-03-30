@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows&DoorsNI Jobs</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head><body>
+
+<header>
+  <div class="logo">Windows&DoorsNI<span> Jobs</span></div>
+  <button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('jobs')">Jobs</button>
+    <button class="nav-btn" onclick="showPage('upcoming')">Upcoming</button>
+    <button class="nav-btn" onclick="showPage('stock')">Stock</button>
+    <button class="nav-btn" onclick="showPage('inspect')">Inspect</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
+  <div class="page active" id="page-dashboard">
+    <div class="section-head" style="margin-bottom:24px">
+      <h1 class="section-title">Overview</h1>
+      <span id="dash-date" style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace"></span>
+    </div>
+
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Upcoming This Week</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('upcoming')">View all →</button>
+        </div>
+        <div class="panel-body" id="dash-upcoming"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Low Stock Alert</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('stock')">View all →</button>
+        </div>
+        <div class="panel-body" id="dash-stock"></div>
+      </div>
+      <div class="panel" style="grid-column:1/-1">
+        <div class="panel-header">
+          <span class="panel-title">Recent Jobs</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('jobs')">View all →</button>
+        </div>
+        <div class="panel-body" id="dash-jobs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ JOBS ═══════════════════ -->
+  <div class="page" id="page-jobs">
+    <div class="section-head">
+      <h1 class="section-title">Jobs</h1>
+      <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="job-search" placeholder="Search by customer, reference..." oninput="renderJobs()">
+      <select id="job-filter" onchange="renderJobs()" style="max-width:160px">
+        <option value="">All statuses</option>
+        <option value="quoted">Quoted</option>
+        <option value="booked">Booked</option>
+        <option value="in-progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="panel">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th><th>Customer</th><th>Contact</th>
+              <th>Scheduled</th><th>Products</th><th>Status</th><th>Notes</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody"></tbody>
+        </table>
+      </div>
+      <div id="jobs-empty" class="empty" style="display:none">
+        <div class="empty-icon">🪟</div>
+        <strong>No jobs yet</strong>
+        <p>Add your first job to get started.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ UPCOMING ═══════════════════ -->
+  <div class="page" id="page-upcoming">
+    <div class="section-head">
+      <h1 class="section-title">Upcoming Jobs</h1>
+      <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+    </div>
+    <div class="panel">
+      <div class="timeline" id="upcoming-list"></div>
+      <div id="upcoming-empty" class="empty" style="display:none">
+        <div class="empty-icon">📅</div>
+        <strong>No upcoming jobs</strong>
+        <p>Jobs with a scheduled date will appear here.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ INSPECT LIST ═══════════════════ -->
+  <div class="page" id="page-inspect">
+    <div class="section-head">
+      <h1 class="section-title">Inspect List</h1>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="inspect-input" placeholder="Add a job to inspect..." onkeydown="if(event.key==='Enter'){addInspectItem();}">
+      <button class="btn btn-primary btn-sm" onclick="addInspectItem()">Add</button>
+      <input type="text" id="inspect-search" placeholder="Search inspect list..." oninput="renderInspect()">
+    </div>
+    <div class="panel">
+      <div id="inspect-list" style="padding: 14px;"></div>
+      <div id="inspect-empty" class="empty" style="display:none">
+        <div class="empty-icon">📝</div>
+        <strong>No inspect notes</strong>
+        <p>Add locations or jobs you need to visit.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ STOCK ═══════════════════ -->
+  <div class="page" id="page-stock">
+    <div class="section-head">
+      <h1 class="section-title">Stock</h1>
+      <button class="btn btn-primary" onclick="openStockModal()">+ Add Item</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="stock-search" placeholder="Search stock..." oninput="renderStock()">
+      <select id="stock-cat" onchange="renderStock()" style="max-width:160px">
+        <option value="">All categories</option>
+        <option value="Window Unit">Window Units</option>
+        <option value="Door Unit">Door Units</option>
+        <option value="Hardware">Hardware & Fittings</option>
+        <option value="Glass">Glass Panes</option>
+        <option value="Material">Installation Materials</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="panel">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>Item</th><th>Category</th><th>SKU</th><th>In Stock</th><th>Min Stock</th><th>Unit</th><th>Supplier</th><th></th></tr>
+          </thead>
+          <tbody id="stock-tbody"></tbody>
+        </table>
+      </div>
+      <div id="stock-empty" class="empty" style="display:none">
+        <div class="empty-icon">📦</div>
+        <strong>No stock items</strong>
+        <p>Add items to start tracking your inventory.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════ JOB MODAL ═══════════════════ -->
+<div class="overlay" id="job-overlay" onclick="closeJobModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="job-modal-title">New Job</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input id="j-name" type="text" placeholder="e.g. John Smith">
+      </div>
+      <div class="form-group">
+        <label>Reference</label>
+        <input id="j-ref" type="text" placeholder="e.g. JOB-001">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input id="j-phone" type="tel" placeholder="07700 900000">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input id="j-email" type="email" placeholder="customer@email.com">
+      </div>
+      <div class="form-group">
+        <label>Scheduled Date</label>
+        <input id="j-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="j-status">
+          <option value="quoted">Quoted</option>
+          <option value="booked">Booked</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label>Address</label>
+        <input id="j-address" type="text" placeholder="Installation address">
+      </div>
+      <div class="form-group form-full">
+        <label>Products / Description</label>
+        <textarea id="j-products" placeholder="e.g. 3x UPVC casement windows, 1x composite front door..."></textarea>
+      </div>
+      <div class="form-group form-full">
+        <label>Notes</label>
+        <textarea id="j-notes" placeholder="Any additional notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeJobModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveJob()">Save Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ STOCK MODAL ═══════════════════ -->
+<div class="overlay" id="stock-overlay" onclick="closeStockModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="stock-modal-title">Add Stock Item</div>
+    <div class="form-grid">
+      <div class="form-group form-full">
+        <label>Item Name *</label>
+        <input id="s-name" type="text" placeholder="e.g. UPVC Casement Window 600x900">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="s-cat">
+          <option value="Window Unit">Window Unit</option>
+          <option value="Door Unit">Door Unit</option>
+          <option value="Hardware">Hardware & Fittings</option>
+          <option value="Glass">Glass Panes</option>
+          <option value="Material">Installation Materials</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>SKU / Code</label>
+        <input id="s-sku" type="text" placeholder="e.g. WIN-UPVC-0609">
+      </div>
+      <div class="form-group">
+        <label>Qty In Stock *</label>
+        <input id="s-qty" type="number" min="0" value="0">
+      </div>
+      <div class="form-group">
+        <label>Min Stock Level</label>
+        <input id="s-min" type="number" min="0" value="2">
+      </div>
+      <div class="form-group">
+        <label>Unit</label>
+        <input id="s-unit" type="text" placeholder="e.g. units, m², packs">
+      </div>
+      <div class="form-group form-full">
+        <label>Supplier</label>
+        <input id="s-supplier" type="text" placeholder="e.g. Eurocell, Anglian">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeStockModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStock()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
