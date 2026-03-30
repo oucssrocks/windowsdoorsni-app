@@ -13,7 +13,57 @@ function save() {
   localStorage.setItem('cv_inspections', JSON.stringify(inspections));
 }
 
+const SUPABASE_URL = 'https://your-project-id.supabase.co';
+const SUPABASE_ANON_KEY = 'your-public-anon-key';
+let supabaseClient = null;
+
+if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  console.warn('Supabase script not loaded or invalid; persistence functions will be disabled.');
+}
+
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+async function loadSupabase() {
+  if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
+  try {
+    const [{ data: jobsData, error: jobsError }, { data: stockData, error: stockError }, { data: inspectData, error: inspectError }] = await Promise.all([
+      supabaseClient.from('jobs').select('*'),
+      supabaseClient.from('stock').select('*'),
+      supabaseClient.from('inspections').select('*')
+    ]);
+
+    if (jobsError || stockError || inspectError) {
+      throw new Error((jobsError||stockError||inspectError).message);
+    }
+
+    jobs = jobsData.map(j => ({ ...j, created: j.created || Date.now() }));
+    stock = stockData;
+    inspections = inspectData;
+
+    save();
+    renderJobs(); renderStock(); renderInspect(); renderDashboard();
+    toast('Loaded from Supabase ✓');
+  } catch (err) {
+    toast('Supabase load error: ' + err.message, 'var(--red)');
+    console.error(err);
+  }
+}
+
+async function syncSupabase() {
+  if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
+  try {
+    await supabaseClient.from('jobs').upsert(jobs);
+    await supabaseClient.from('stock').upsert(stock);
+    await supabaseClient.from('inspections').upsert(inspections);
+
+    toast('Synced to Supabase ✓');
+  } catch (err) {
+    toast('Supabase sync error: ' + err.message, 'var(--red)');
+    console.error(err);
+  }
+}
 
 // ══════════════════════════════════════════
 //  NAV

@@ -6,6 +6,7 @@
 <title>Windows&DoorsNI Jobs</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head><body>
 
 <header>
@@ -27,6 +28,10 @@
     <div class="section-head" style="margin-bottom:24px">
       <h1 class="section-title">Overview</h1>
       <span id="dash-date" style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace"></span>
+      <div>
+        <button class="btn btn-sm btn-ghost" onclick="loadSupabase()">Load Supabase</button>
+        <button class="btn btn-sm btn-primary" onclick="syncSupabase()">Sync to Supabase</button>
+      </div>
     </div>
 
     <div class="kpi-row" id="kpi-row"></div>
