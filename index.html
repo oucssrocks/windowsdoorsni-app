@@ -24,8 +24,6 @@
   </nav>
   <div class="header-right">
     <span id="sync-status" class="sync-status">● Synced</span>
-    <button class="btn btn-sm btn-ghost" onclick="loadSupabase()">↓ Load</button>
-    <button class="btn btn-sm btn-primary" onclick="syncSupabase()">↑ Sync</button>
   </div>
 </header>
 
@@ -34,8 +32,14 @@
   <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
   <div class="page active" id="page-dashboard">
     <div class="section-head" style="margin-bottom:24px">
-      <h1 class="section-title">Overview</h1>
-      <span id="dash-date" style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace"></span>
+      <div>
+        <h1 class="section-title">Overview</h1>
+        <span id="dash-date" style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace"></span>
+      </div>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSupabase()">↑ Sync</button>
+      </div>
     </div>
 
     <div class="kpi-row" id="kpi-row"></div>
@@ -76,7 +80,11 @@
   <div class="page" id="page-jobs">
     <div class="section-head">
       <h1 class="section-title">Jobs</h1>
-      <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSupabase()">↑ Sync</button>
+        <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+      </div>
     </div>
     <div class="search-bar">
       <input type="text" id="job-search" placeholder="Search by customer, reference..." oninput="renderJobs()">
@@ -112,7 +120,11 @@
   <div class="page" id="page-upcoming">
     <div class="section-head">
       <h1 class="section-title">Upcoming Jobs</h1>
-      <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSupabase()">↑ Sync</button>
+        <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+      </div>
     </div>
     <div class="panel">
       <div class="timeline" id="upcoming-list"></div>
@@ -128,6 +140,10 @@
   <div class="page" id="page-inspect">
     <div class="section-head">
       <h1 class="section-title">Inspect List</h1>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSupabase()">↑ Sync</button>
+      </div>
     </div>
     <div class="search-bar">
       <input type="text" id="inspect-input" placeholder="Add a job to inspect..." onkeydown="if(event.key==='Enter'){addInspectItem();}">
@@ -148,7 +164,11 @@
   <div class="page" id="page-stock">
     <div class="section-head">
       <h1 class="section-title">Stock</h1>
-      <button class="btn btn-primary" onclick="openStockModal()">+ Add Item</button>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSupabase()">↑ Sync</button>
+        <button class="btn btn-primary" onclick="openStockModal()">+ Add Item</button>
+      </div>
     </div>
     <div class="search-bar">
       <input type="text" id="stock-search" placeholder="Search stock..." oninput="renderStock()">

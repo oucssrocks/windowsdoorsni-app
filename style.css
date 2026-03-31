@@ -343,3 +343,16 @@ textarea { resize: vertical; min-height: 70px; }
   .back-btn { padding: 5px 10px; font-size: 11px; }
   .header-right .btn { width: auto; }
 }
+
+/* ── SECTION ACTIONS ── */
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .section-actions { width: 100%; }
+  .section-actions .btn { flex: 1; }
+}

@@ -21,6 +21,14 @@ function initSupabase() {
 let jobs        = JSON.parse(localStorage.getItem('cv_jobs')        || '[]');
 let stock       = JSON.parse(localStorage.getItem('cv_stock')       || '[]');
 let inspections = JSON.parse(localStorage.getItem('cv_inspections') || '[]');
+
+// Migrate any legacy 'bookedDate' fields and patch missing created_at
+jobs = jobs.map(j => {
+  if ('bookedDate' in j) { j.booked = j.bookedDate; delete j.bookedDate; }
+  if (!j.created_at) j.created_at = new Date().toISOString();
+  return j;
+});
+localStorage.setItem('cv_jobs', JSON.stringify(jobs));
 let editingJobId   = null;
 let editingStockId = null;
 
@@ -324,7 +332,7 @@ function saveJob() {
     Object.assign(j, getJobForm());
     toast('Job updated ✓');
   } else {
-    jobs.unshift({ id: uid(), created: Date.now(), ...getJobForm() });
+    jobs.unshift({ id: uid(), created: Date.now(), created_at: new Date().toISOString(), ...getJobForm() });
     toast('Job added ✓');
   }
   save();
@@ -334,6 +342,7 @@ function saveJob() {
 
 function getJobForm() {
   return {
+    created_at: new Date().toISOString(),
     name:     document.getElementById('j-name').value.trim(),
     ref:      document.getElementById('j-ref').value.trim(),
     phone:    document.getElementById('j-phone').value.trim(),
