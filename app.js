@@ -1,52 +1,64 @@
 // ══════════════════════════════════════════
-//  STATE
+//  SUPABASE SETUP
 // ══════════════════════════════════════════
-let jobs  = JSON.parse(localStorage.getItem('cv_jobs')  || '[]');
-let stock = JSON.parse(localStorage.getItem('cv_stock') || '[]');
+const SUPABASE_URL = 'https://skubqeoftgwbjinkevqv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrdWJxZW9mdGd3YmppbmtldnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODMwMzksImV4cCI6MjA5MDQ1OTAzOX0.n-oueqH7sJI8_BTDrMvS1ryCi5uJHFRa_MUPVuITWBU'; // keep yours
+
+let supabaseClient = null;
+
+function initSupabase() {
+  if (window.supabase?.createClient) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase ready');
+  } else {
+    console.warn('Supabase SDK not available');
+  }
+}
+
+// ══════════════════════════════════════════
+//  STATE — localStorage as offline cache
+// ══════════════════════════════════════════
+let jobs        = JSON.parse(localStorage.getItem('cv_jobs')        || '[]');
+let stock       = JSON.parse(localStorage.getItem('cv_stock')       || '[]');
 let inspections = JSON.parse(localStorage.getItem('cv_inspections') || '[]');
-let editingJobId = null;
+let editingJobId   = null;
 let editingStockId = null;
 
 function save() {
-  localStorage.setItem('cv_jobs',  JSON.stringify(jobs));
-  localStorage.setItem('cv_stock', JSON.stringify(stock));
+  localStorage.setItem('cv_jobs',        JSON.stringify(jobs));
+  localStorage.setItem('cv_stock',       JSON.stringify(stock));
   localStorage.setItem('cv_inspections', JSON.stringify(inspections));
-}
-
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-public-anon-key';
-let supabaseClient = null;
-
-if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} else {
-  console.warn('Supabase script not loaded or invalid; persistence functions will be disabled.');
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
+// ══════════════════════════════════════════
+//  SUPABASE SYNC
+// ══════════════════════════════════════════
 async function loadSupabase() {
   if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
   try {
-    const [{ data: jobsData, error: jobsError }, { data: stockData, error: stockError }, { data: inspectData, error: inspectError }] = await Promise.all([
+    const [
+      { data: jobsData,    error: e1 },
+      { data: stockData,   error: e2 },
+      { data: inspectData, error: e3 },
+    ] = await Promise.all([
       supabaseClient.from('jobs').select('*'),
       supabaseClient.from('stock').select('*'),
-      supabaseClient.from('inspections').select('*')
+      supabaseClient.from('inspections').select('*'),
     ]);
 
-    if (jobsError || stockError || inspectError) {
-      throw new Error((jobsError||stockError||inspectError).message);
-    }
+    if (e1 || e2 || e3) throw new Error((e1 || e2 || e3).message);
 
-    jobs = jobsData.map(j => ({ ...j, created: j.created || Date.now() }));
-    stock = stockData;
+    jobs        = jobsData.map(j => ({ ...j, created: j.created || Date.now() }));
+    stock       = stockData;
     inspections = inspectData;
 
     save();
     renderJobs(); renderStock(); renderInspect(); renderDashboard();
     toast('Loaded from Supabase ✓');
   } catch (err) {
-    toast('Supabase load error: ' + err.message, 'var(--red)');
+    toast('Load error: ' + err.message, 'var(--red)');
     console.error(err);
   }
 }
@@ -54,13 +66,15 @@ async function loadSupabase() {
 async function syncSupabase() {
   if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
   try {
-    await supabaseClient.from('jobs').upsert(jobs);
-    await supabaseClient.from('stock').upsert(stock);
-    await supabaseClient.from('inspections').upsert(inspections);
-
+    const [r1, r2, r3] = await Promise.all([
+      supabaseClient.from('jobs').upsert(jobs,               { onConflict: 'id' }),
+      supabaseClient.from('stock').upsert(stock,             { onConflict: 'id' }),
+      supabaseClient.from('inspections').upsert(inspections, { onConflict: 'id' }),
+    ]);
+    if (r1.error || r2.error || r3.error) throw new Error((r1.error || r2.error || r3.error).message);
     toast('Synced to Supabase ✓');
   } catch (err) {
-    toast('Supabase sync error: ' + err.message, 'var(--red)');
+    toast('Sync error: ' + err.message, 'var(--red)');
     console.error(err);
   }
 }
@@ -462,4 +476,9 @@ function deleteStock(id) {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-renderDashboard();
+window.addEventListener('DOMContentLoaded', () => {
+  initSupabase();
+  renderDashboard();
+  // Optional: auto-load from Supabase on page open
+  loadSupabase();
+});
