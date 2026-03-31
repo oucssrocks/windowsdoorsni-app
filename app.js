@@ -132,6 +132,7 @@ function renderAll() {
   renderDashboard();
   renderJobs();
   renderUpcoming();
+  renderHistory();
   renderStock();
   renderInspect();
 }
@@ -158,6 +159,7 @@ function showPage(id, addToHistory = true) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'jobs')      renderJobs();
   if (id === 'upcoming')  renderUpcoming();
+  if (id === 'history')   renderHistory();
   if (id === 'stock')     renderStock();
   if (id === 'inspect')   renderInspect();
 
@@ -304,7 +306,7 @@ function openJobModal(id) {
     document.getElementById('j-phone').value    = j.phone   || '';
     document.getElementById('j-email').value    = j.email   || '';
     document.getElementById('j-date').value     = j.date    || '';
-    document.getElementById('j-booked').value   = j.booked  || '';   // ← fixed: was j.bookedDate
+    document.getElementById('j-booked').value   = j.booked  || '';   
     document.getElementById('j-status').value   = j.status  || 'quoted';
     document.getElementById('j-address').value  = j.address || '';
     document.getElementById('j-products').value = j.products|| '';
@@ -348,7 +350,7 @@ function getJobForm() {
     phone:    document.getElementById('j-phone').value.trim(),
     email:    document.getElementById('j-email').value.trim(),
     date:     document.getElementById('j-date').value,
-    booked:   document.getElementById('j-booked').value,   // ← fixed: was bookedDate
+    booked:   document.getElementById('j-booked').value,   
     status:   document.getElementById('j-status').value,
     address:  document.getElementById('j-address').value.trim(),
     products: document.getElementById('j-products').value.trim(),
@@ -403,6 +405,38 @@ function renderUpcoming() {
 }
 
 // ══════════════════════════════════════════
+//  HISTORY
+// ══════════════════════════════════════════
+function renderHistory() {
+  const sorted = jobs
+    .filter(j => j.status === 'done')
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  const list  = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+  
+  if (!list || !empty) return;
+
+  if (!sorted.length) { 
+    list.innerHTML = ''; 
+    empty.style.display = ''; 
+    return; 
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = sorted.map(j => `
+    <div class="tl-item" onclick="editJob('${j.id}')">
+      <div class="tl-date">${fmtDate(j.date)}</div>
+      <div class="tl-content">
+        <div class="tl-name">${j.name}${j.ref ? ` <span class="mono" style="font-size:11px;color:var(--muted)">· ${j.ref}</span>` : ''}</div>
+        <div class="tl-detail">${j.address || ''}</div>
+      </div>
+      ${statusBadge(j.status)}
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
 //  INSPECT
 // ══════════════════════════════════════════
 function addInspectItem() {
@@ -436,18 +470,24 @@ function renderInspect() {
   let filtered  = inspections;
   if (q) filtered = filtered.filter(i => i.text.toLowerCase().includes(q));
 
-  if (!filtered.length) { list.innerHTML = ''; empty.style.display = ''; return; }
+  if (!filtered.length) { 
+    list.innerHTML = ''; 
+    empty.style.display = ''; 
+    return; 
+  }
   empty.style.display = 'none';
 
   list.innerHTML = filtered.map(i => `
-    <div class="mini-job" style="justify-content:space-between;">
-      <div style="display:flex;align-items:center;gap:10px;flex:1;">
+    <div class="inspect-item ${i.done ? 'is-done' : ''}">
+      <label class="inspect-check">
         <input type="checkbox" ${i.done ? 'checked' : ''} onclick="toggleInspectDone('${i.id}')">
-        <span style="text-decoration:${i.done ? 'line-through' : 'none'};color:${i.done ? 'var(--muted)' : 'var(--text)'}">${i.text}</span>
+        <span class="checkmark"></span>
+      </label>
+      <div class="inspect-body">
+        <span class="inspect-text">${i.text}</span>
+        <span class="inspect-meta">Added ${new Date(i.created).toLocaleDateString('en-GB')}</span>
       </div>
-      <div class="action-row">
-        <button class="btn btn-danger btn-sm" onclick="deleteInspect('${i.id}')">✕</button>
-      </div>
+      <button class="btn-icon-delete" onclick="deleteInspect('${i.id}')" title="Remove">✕</button>
     </div>
   `).join('');
 }

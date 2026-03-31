@@ -19,6 +19,7 @@
     <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
     <button class="nav-btn" onclick="showPage('jobs')">Jobs</button>
     <button class="nav-btn" onclick="showPage('upcoming')">Upcoming</button>
+    <button class="nav-btn" onclick="showPage('history')">History</button>
     <button class="nav-btn" onclick="showPage('stock')">Stock</button>
     <button class="nav-btn" onclick="showPage('inspect')">Inspect</button>
   </nav>
@@ -29,7 +30,6 @@
 
 <main>
 
-  <!-- ═══════════════════ DASHBOARD ═══════════════════ -->
   <div class="page active" id="page-dashboard">
     <div class="section-head" style="margin-bottom:24px">
       <div>
@@ -47,6 +47,7 @@
     <div class="quick-actions" style="margin-bottom:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" onclick="showPage('jobs')">Jobs list</button>
       <button class="btn btn-primary btn-sm" onclick="showPage('upcoming')">Upcoming list</button>
+      <button class="btn btn-primary btn-sm" onclick="showPage('history')">History list</button>
       <button class="btn btn-primary btn-sm" onclick="showPage('inspect')">Inspect list</button>
       <button class="btn btn-primary btn-sm" onclick="showPage('stock')">Stock list</button>
     </div>
@@ -76,7 +77,6 @@
     </div>
   </div>
 
-  <!-- ═══════════════════ JOBS ═══════════════════ -->
   <div class="page" id="page-jobs">
     <div class="section-head">
       <h1 class="section-title">Jobs</h1>
@@ -116,7 +116,6 @@
     </div>
   </div>
 
-  <!-- ═══════════════════ UPCOMING ═══════════════════ -->
   <div class="page" id="page-upcoming">
     <div class="section-head">
       <h1 class="section-title">Upcoming Jobs</h1>
@@ -136,7 +135,24 @@
     </div>
   </div>
 
-  <!-- ═══════════════════ INSPECT LIST ═══════════════════ -->
+  <div class="page" id="page-history">
+    <div class="section-head">
+      <h1 class="section-title">Job History</h1>
+      <div class="section-actions">
+        <button class="btn btn-ghost btn-sm" onclick="loadSupabase()">↓ Load</button>
+        <button class="btn btn-primary" onclick="openJobModal()">+ New Job</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="timeline" id="history-list"></div>
+      <div id="history-empty" class="empty" style="display:none">
+        <div class="empty-icon">📁</div>
+        <strong>No completed jobs</strong>
+        <p>Jobs marked as "Done" will appear here.</p>
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="page-inspect">
     <div class="section-head">
       <h1 class="section-title">Inspect List</h1>
@@ -151,7 +167,7 @@
       <input type="text" id="inspect-search" placeholder="Search inspect list..." oninput="renderInspect()">
     </div>
     <div class="panel">
-      <div id="inspect-list" style="padding: 14px;"></div>
+      <div id="inspect-list"></div>
       <div id="inspect-empty" class="empty" style="display:none">
         <div class="empty-icon">📝</div>
         <strong>No inspect notes</strong>
@@ -160,7 +176,6 @@
     </div>
   </div>
 
-  <!-- ═══════════════════ STOCK ═══════════════════ -->
   <div class="page" id="page-stock">
     <div class="section-head">
       <h1 class="section-title">Stock</h1>
@@ -201,7 +216,6 @@
 
 </main>
 
-<!-- ═══════════════════ JOB MODAL ═══════════════════ -->
 <div class="overlay" id="job-overlay" onclick="closeJobModal(event)">
   <div class="modal">
     <div class="modal-title" id="job-modal-title">New Job</div>
@@ -259,7 +273,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════ STOCK MODAL ═══════════════════ -->
 <div class="overlay" id="stock-overlay" onclick="closeStockModal(event)">
   <div class="modal">
     <div class="modal-title" id="stock-modal-title">Add Stock Item</div>

@@ -356,3 +356,67 @@ textarea { resize: vertical; min-height: 70px; }
   .section-actions { width: 100%; }
   .section-actions .btn { flex: 1; }
 }
+
+/* ── TIDY INSPECT LIST ── */
+.inspect-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.inspect-item:hover {
+  background: var(--surface2);
+}
+
+.inspect-item.is-done .inspect-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.inspect-check {
+  padding-top: 2px;
+  cursor: pointer;
+}
+
+.inspect-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inspect-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.inspect-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.btn-icon-delete {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-icon-delete:hover {
+  color: var(--red);
+  background: rgba(224, 92, 92, 0.1);
+}
+
+/* Adjust the container padding */
+#inspect-list {
+  padding: 0 !important; 
+}
