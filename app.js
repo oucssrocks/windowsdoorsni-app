@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════
 //  SUPABASE SETUP
 // ══════════════════════════════════════════
-const SUPABASE_URL = 'https://skubqeoftgwbjinkevqv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrdWJxZW9mdGd3YmppbmtldnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODMwMzksImV4cCI6MjA5MDQ1OTAzOX0.n-oueqH7sJI8_BTDrMvS1ryCi5uJHFRa_MUPVuITWBU'; // keep yours
+const SUPABASE_URL     = 'https://skubqeoftgwbjinkevqv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrdWJxZW9mdGd3YmppbmtldnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODMwMzksImV4cCI6MjA5MDQ1OTAzOX0.n-oueqH7sJI8_BTDrMvS1ryCi5uJHFRa_MUPVuITWBU';
 
 let supabaseClient = null;
 
@@ -16,7 +16,7 @@ function initSupabase() {
 }
 
 // ══════════════════════════════════════════
-//  STATE — localStorage as offline cache
+//  STATE
 // ══════════════════════════════════════════
 let jobs        = JSON.parse(localStorage.getItem('cv_jobs')        || '[]');
 let stock       = JSON.parse(localStorage.getItem('cv_stock')       || '[]');
@@ -24,19 +24,52 @@ let inspections = JSON.parse(localStorage.getItem('cv_inspections') || '[]');
 let editingJobId   = null;
 let editingStockId = null;
 
+// Navigation history stack for back button
+let navHistory = [];
+let currentPage = 'dashboard';
+
 function save() {
   localStorage.setItem('cv_jobs',        JSON.stringify(jobs));
   localStorage.setItem('cv_stock',       JSON.stringify(stock));
   localStorage.setItem('cv_inspections', JSON.stringify(inspections));
+  scheduleSync();
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 // ══════════════════════════════════════════
-//  SUPABASE SYNC
+//  AUTO-SYNC (debounced — waits 2s after last change)
+// ══════════════════════════════════════════
+let syncTimer = null;
+let syncIndicator = null;
+
+function scheduleSync() {
+  if (!supabaseClient) return;
+  clearTimeout(syncTimer);
+  setSyncStatus('pending');
+  syncTimer = setTimeout(() => syncSupabase(true), 2000);
+}
+
+function setSyncStatus(state) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const states = {
+    idle:    { text: '● Synced',   color: 'var(--green)' },
+    pending: { text: '○ Unsaved…', color: 'var(--amber)' },
+    syncing: { text: '↻ Syncing…', color: 'var(--accent)' },
+    error:   { text: '✕ Sync failed', color: 'var(--red)' },
+  };
+  const s = states[state] || states.idle;
+  el.textContent = s.text;
+  el.style.color = s.color;
+}
+
+// ══════════════════════════════════════════
+//  SUPABASE LOAD / SYNC
 // ══════════════════════════════════════════
 async function loadSupabase() {
   if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
+  setSyncStatus('syncing');
   try {
     const [
       { data: jobsData,    error: e1 },
@@ -50,21 +83,27 @@ async function loadSupabase() {
 
     if (e1 || e2 || e3) throw new Error((e1 || e2 || e3).message);
 
-    jobs        = jobsData.map(j => ({ ...j, created: j.created || Date.now() }));
-    stock       = stockData;
-    inspections = inspectData;
+    jobs        = (jobsData    || []).map(j => ({ ...j, created: j.created || Date.now() }));
+    stock       = stockData    || [];
+    inspections = inspectData  || [];
 
     save();
-    renderJobs(); renderStock(); renderInspect(); renderDashboard();
+    renderAll();
+    setSyncStatus('idle');
     toast('Loaded from Supabase ✓');
   } catch (err) {
+    setSyncStatus('error');
     toast('Load error: ' + err.message, 'var(--red)');
     console.error(err);
   }
 }
 
-async function syncSupabase() {
-  if (!supabaseClient) { toast('Supabase not initialized', 'var(--red)'); return; }
+async function syncSupabase(silent = false) {
+  if (!supabaseClient) {
+    if (!silent) toast('Supabase not initialized', 'var(--red)');
+    return;
+  }
+  setSyncStatus('syncing');
   try {
     const [r1, r2, r3] = await Promise.all([
       supabaseClient.from('jobs').upsert(jobs,               { onConflict: 'id' }),
@@ -72,59 +111,88 @@ async function syncSupabase() {
       supabaseClient.from('inspections').upsert(inspections, { onConflict: 'id' }),
     ]);
     if (r1.error || r2.error || r3.error) throw new Error((r1.error || r2.error || r3.error).message);
-    toast('Synced to Supabase ✓');
+    setSyncStatus('idle');
+    if (!silent) toast('Synced to Supabase ✓');
   } catch (err) {
-    toast('Sync error: ' + err.message, 'var(--red)');
+    setSyncStatus('error');
+    if (!silent) toast('Sync error: ' + err.message, 'var(--red)');
     console.error(err);
   }
 }
 
+function renderAll() {
+  renderDashboard();
+  renderJobs();
+  renderUpcoming();
+  renderStock();
+  renderInspect();
+}
+
 // ══════════════════════════════════════════
-//  NAV
+//  NAV + BACK BUTTON
 // ══════════════════════════════════════════
-function showPage(id) {
+function showPage(id, addToHistory = true) {
+  if (addToHistory && id !== currentPage) {
+    navHistory.push(currentPage);
+  }
+  currentPage = id;
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('page-' + id).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => {
-    if (b.textContent.toLowerCase().includes(id === 'dashboard' ? 'dash' : id.slice(0,4))) b.classList.add('active');
+    if (b.textContent.toLowerCase().includes(id === 'dashboard' ? 'dash' : id.slice(0, 4)))
+      b.classList.add('active');
   });
+
+  updateBackButton();
+
   if (id === 'dashboard') renderDashboard();
-  if (id === 'jobs') renderJobs();
-  if (id === 'upcoming') renderUpcoming();
-  if (id === 'stock') renderStock();
-  if (id === 'inspect') renderInspect();
+  if (id === 'jobs')      renderJobs();
+  if (id === 'upcoming')  renderUpcoming();
+  if (id === 'stock')     renderStock();
+  if (id === 'inspect')   renderInspect();
 
   if (window.innerWidth <= 900) {
     document.querySelector('.nav')?.classList.remove('open');
   }
 }
 
+function goBack() {
+  if (navHistory.length === 0) return;
+  const prev = navHistory.pop();
+  showPage(prev, false);
+}
+
+function updateBackButton() {
+  const btn = document.getElementById('back-btn');
+  if (!btn) return;
+  btn.style.display = navHistory.length > 0 ? 'inline-flex' : 'none';
+}
+
 function toggleNav() {
-  const nav = document.querySelector('.nav');
-  if (!nav) return;
-  nav.classList.toggle('open');
+  document.querySelector('.nav')?.classList.toggle('open');
 }
 
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
 function statusBadge(s) {
-  const map = { quoted:'badge-quoted', booked:'badge-booked', 'in-progress':'badge-progress', done:'badge-done' };
-  const label = { quoted:'Quoted', booked:'Booked', 'in-progress':'In Progress', done:'Done' };
-  return `<span class="badge ${map[s]||''}">${label[s]||s}</span>`;
+  const map   = { quoted: 'badge-quoted', booked: 'badge-booked', 'in-progress': 'badge-progress', done: 'badge-done' };
+  const label = { quoted: 'Quoted', booked: 'Booked', 'in-progress': 'In Progress', done: 'Done' };
+  return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
 }
 
 function fmtDate(d) {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function daysUntil(d) {
   if (!d) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const dt = new Date(d + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dt    = new Date(d + 'T00:00:00');
   return Math.round((dt - today) / 86400000);
 }
 
@@ -132,7 +200,7 @@ function toast(msg, color) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.background = color || 'var(--green)';
-  t.style.color = '#000';
+  t.style.color = color ? 'var(--text)' : '#000';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
@@ -141,40 +209,42 @@ function toast(msg, color) {
 //  DASHBOARD
 // ══════════════════════════════════════════
 function renderDashboard() {
-  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
 
-  const active   = jobs.filter(j => j.status !== 'done').length;
-  const thisWeek = jobs.filter(j => { const d = daysUntil(j.date); return d !== null && d >= 0 && d <= 7; }).length;
-  const lowItems = stock.filter(s => s.qty <= s.min).length;
-  const booked   = jobs.filter(j => j.status === 'booked').length;
+  const active      = jobs.filter(j => j.status !== 'done').length;
+  const thisWeek    = jobs.filter(j => { const d = daysUntil(j.date); return d !== null && d >= 0 && d <= 7; }).length;
+  const lowItems    = stock.filter(s => s.qty <= s.min).length;
+  const booked      = jobs.filter(j => j.status === 'booked').length;
   const inspectCount = inspections.length;
 
   document.getElementById('kpi-row').innerHTML = `
     <div class="kpi blue"><div class="kpi-label">Active Jobs</div><div class="kpi-value">${active}</div><div class="kpi-sub">not yet complete</div></div>
     <div class="kpi gold"><div class="kpi-label">This Week</div><div class="kpi-value">${thisWeek}</div><div class="kpi-sub">scheduled jobs</div></div>
     <div class="kpi green"><div class="kpi-label">Booked</div><div class="kpi-value">${booked}</div><div class="kpi-sub">confirmed work</div></div>
-    <div class="kpi ${lowItems>0?'red':'green'}"><div class="kpi-label">Low Stock</div><div class="kpi-value">${lowItems}</div><div class="kpi-sub">items below minimum</div></div>
+    <div class="kpi ${lowItems > 0 ? 'red' : 'green'}"><div class="kpi-label">Low Stock</div><div class="kpi-value">${lowItems}</div><div class="kpi-sub">items below minimum</div></div>
     <div class="kpi blue"><div class="kpi-label">Inspect List</div><div class="kpi-value">${inspectCount}</div><div class="kpi-sub">pending visits</div></div>
-    <div class="kpi blue"><div class="kpi-label">Total Stock Items</div><div class="kpi-value">${stock.length}</div><div class="kpi-sub">tracked</div></div>
+    <div class="kpi blue"><div class="kpi-label">Total Stock</div><div class="kpi-value">${stock.length}</div><div class="kpi-sub">items tracked</div></div>
   `;
 
   const upcoming = jobs
     .filter(j => { const d = daysUntil(j.date); return d !== null && d >= 0 && d <= 7 && j.status !== 'done'; })
-    .sort((a,b) => a.date.localeCompare(b.date))
-    .slice(0,5);
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5);
   document.getElementById('dash-upcoming').innerHTML = upcoming.length
     ? upcoming.map(j => `<div class="mini-job" onclick="showPage('jobs')"><span class="mini-job-name">${j.name}</span>${statusBadge(j.status)}<span class="mini-job-date">${fmtDate(j.date)}</span></div>`).join('')
     : '<div class="empty"><div class="empty-icon">✅</div><strong>All clear</strong><p>No jobs this week.</p></div>';
 
-  const low = stock.filter(s => s.qty <= s.min).slice(0,5);
+  const low = stock.filter(s => s.qty <= s.min).slice(0, 5);
   document.getElementById('dash-stock').innerHTML = low.length
-    ? low.map(s => `<div class="mini-job" onclick="showPage('stock')"><span class="mini-job-name">${s.name}</span><span class="badge badge-done">${s.qty} ${s.unit||'units'}</span></div>`).join('')
+    ? low.map(s => `<div class="mini-job" onclick="showPage('stock')"><span class="mini-job-name">${s.name}</span><span class="badge badge-done">${s.qty} ${s.unit || 'units'}</span></div>`).join('')
     : '<div class="empty"><div class="empty-icon">📦</div><strong>Stock OK</strong><p>All items above minimum.</p></div>';
 
-  const recent = [...jobs].sort((a,b) => (b.created||0)-(a.created||0)).slice(0,5);
+  const recent = [...jobs].sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 5);
   document.getElementById('dash-jobs').innerHTML = recent.length
     ? `<div class="tbl-wrap"><table><thead><tr><th>Customer</th><th>Ref</th><th>Date</th><th>Status</th></tr></thead><tbody>
-        ${recent.map(j => `<tr onclick="showPage('jobs')" style="cursor:pointer"><td>${j.name}</td><td><span class="mono">${j.ref||'—'}</span></td><td><span class="mono">${fmtDate(j.date)}</span></td><td>${statusBadge(j.status)}</td></tr>`).join('')}
+        ${recent.map(j => `<tr onclick="showPage('jobs')" style="cursor:pointer"><td>${j.name}</td><td><span class="mono">${j.ref || '—'}</span></td><td><span class="mono">${fmtDate(j.date)}</span></td><td>${statusBadge(j.status)}</td></tr>`).join('')}
        </tbody></table></div>`
     : '<div class="empty"><div class="empty-icon">🪟</div><strong>No jobs yet</strong></div>';
 }
@@ -183,30 +253,30 @@ function renderDashboard() {
 //  JOBS
 // ══════════════════════════════════════════
 function renderJobs() {
-  const q = (document.getElementById('job-search')?.value||'').toLowerCase();
-  const f = document.getElementById('job-filter')?.value||'';
+  const q = (document.getElementById('job-search')?.value || '').toLowerCase();
+  const f = document.getElementById('job-filter')?.value || '';
   let filtered = jobs.filter(j => {
-    const match = !q || j.name.toLowerCase().includes(q) || (j.ref||'').toLowerCase().includes(q);
+    const match = !q || j.name.toLowerCase().includes(q) || (j.ref || '').toLowerCase().includes(q);
     const stat  = !f || j.status === f;
     return match && stat;
-  }).sort((a,b) => (b.created||0)-(a.created||0));
+  }).sort((a, b) => (b.created || 0) - (a.created || 0));
 
   const tbody = document.getElementById('jobs-tbody');
   const empty = document.getElementById('jobs-empty');
 
-  if (!filtered.length) { tbody.innerHTML=''; empty.style.display=''; return; }
-  empty.style.display='none';
+  if (!filtered.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
 
   tbody.innerHTML = filtered.map(j => `
     <tr>
-      <td><span class="mono">${j.ref||'—'}</span></td>
-      <td><strong>${j.name}</strong>${j.address ? `<br><span style="font-size:11px;color:var(--muted)">${j.address}</span>`:''}</td>
-      <td>${j.phone ? `<span class="mono" style="font-size:12px">${j.phone}</span>`:''} ${j.email ? `<br><span style="font-size:11px;color:var(--muted)">${j.email}</span>`:''}${!j.phone&&!j.email?'—':''}</td>
+      <td><span class="mono">${j.ref || '—'}</span></td>
+      <td><strong>${j.name}</strong>${j.address ? `<br><span style="font-size:11px;color:var(--muted)">${j.address}</span>` : ''}</td>
+      <td>${j.phone ? `<span class="mono" style="font-size:12px">${j.phone}</span>` : ''}${j.email ? `<br><span style="font-size:11px;color:var(--muted)">${j.email}</span>` : ''}${!j.phone && !j.email ? '—' : ''}</td>
       <td><span class="mono">${fmtDate(j.date)}</span></td>
-      <td><span class="mono">${fmtDate(j.bookedDate)}</span></td>
-      <td style="max-width:180px;font-size:12px">${j.products||'—'}</td>
+      <td><span class="mono">${fmtDate(j.booked)}</span></td>
+      <td style="max-width:180px;font-size:12px">${j.products || '—'}</td>
       <td>${statusBadge(j.status)}</td>
-      <td style="max-width:160px;font-size:12px;color:var(--muted)">${j.notes||''}</td>
+      <td style="max-width:160px;font-size:12px;color:var(--muted)">${j.notes || ''}</td>
       <td><div class="action-row">
         <button class="btn btn-ghost btn-sm" onclick="editJob('${j.id}')">Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteJob('${j.id}')">✕</button>
@@ -217,26 +287,26 @@ function renderJobs() {
 
 function openJobModal(id) {
   editingJobId = id || null;
-  const m = document.getElementById('job-overlay');
   document.getElementById('job-modal-title').textContent = id ? 'Edit Job' : 'New Job';
   if (id) {
     const j = jobs.find(x => x.id === id);
     if (!j) return;
-    document.getElementById('j-name').value    = j.name||'';
-    document.getElementById('j-ref').value     = j.ref||'';
-    document.getElementById('j-phone').value   = j.phone||'';
-    document.getElementById('j-email').value   = j.email||'';
-    document.getElementById('j-date').value    = j.date||'';
-    document.getElementById('j-booked').value  = j.bookedDate||'';
-    document.getElementById('j-status').value  = j.status||'quoted';
-    document.getElementById('j-address').value = j.address||'';
-    document.getElementById('j-products').value= j.products||'';
-    document.getElementById('j-notes').value   = j.notes||'';
+    document.getElementById('j-name').value     = j.name    || '';
+    document.getElementById('j-ref').value      = j.ref     || '';
+    document.getElementById('j-phone').value    = j.phone   || '';
+    document.getElementById('j-email').value    = j.email   || '';
+    document.getElementById('j-date').value     = j.date    || '';
+    document.getElementById('j-booked').value   = j.booked  || '';   // ← fixed: was j.bookedDate
+    document.getElementById('j-status').value   = j.status  || 'quoted';
+    document.getElementById('j-address').value  = j.address || '';
+    document.getElementById('j-products').value = j.products|| '';
+    document.getElementById('j-notes').value    = j.notes   || '';
   } else {
-    ['j-name','j-ref','j-phone','j-email','j-date','j-booked','j-address','j-products','j-notes'].forEach(id => document.getElementById(id).value='');
-    document.getElementById('j-status').value='quoted';
+    ['j-name','j-ref','j-phone','j-email','j-date','j-booked','j-address','j-products','j-notes']
+      .forEach(fid => document.getElementById(fid).value = '');
+    document.getElementById('j-status').value = 'quoted';
   }
-  m.classList.add('open');
+  document.getElementById('job-overlay').classList.add('open');
 }
 
 function editJob(id) { openJobModal(id); }
@@ -257,28 +327,35 @@ function saveJob() {
     jobs.unshift({ id: uid(), created: Date.now(), ...getJobForm() });
     toast('Job added ✓');
   }
-  save(); document.getElementById('job-overlay').classList.remove('open'); renderJobs(); renderDashboard();
+  save();
+  document.getElementById('job-overlay').classList.remove('open');
+  renderJobs(); renderDashboard();
 }
 
 function getJobForm() {
   return {
-    name:       document.getElementById('j-name').value.trim(),
-    ref:        document.getElementById('j-ref').value.trim(),
-    phone:      document.getElementById('j-phone').value.trim(),
-    email:      document.getElementById('j-email').value.trim(),
-    date:       document.getElementById('j-date').value,
-    bookedDate: document.getElementById('j-booked').value,
-    status:     document.getElementById('j-status').value,
-    address:    document.getElementById('j-address').value.trim(),
-    products:   document.getElementById('j-products').value.trim(),
-    notes:      document.getElementById('j-notes').value.trim(),
+    name:     document.getElementById('j-name').value.trim(),
+    ref:      document.getElementById('j-ref').value.trim(),
+    phone:    document.getElementById('j-phone').value.trim(),
+    email:    document.getElementById('j-email').value.trim(),
+    date:     document.getElementById('j-date').value,
+    booked:   document.getElementById('j-booked').value,   // ← fixed: was bookedDate
+    status:   document.getElementById('j-status').value,
+    address:  document.getElementById('j-address').value.trim(),
+    products: document.getElementById('j-products').value.trim(),
+    notes:    document.getElementById('j-notes').value.trim(),
   };
 }
 
 function deleteJob(id) {
   if (!confirm('Delete this job?')) return;
+  // Also delete from Supabase immediately
   jobs = jobs.filter(j => j.id !== id);
   save(); renderJobs(); renderDashboard();
+  if (supabaseClient) {
+    supabaseClient.from('jobs').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('Delete error:', error); });
+  }
   toast('Job deleted', 'var(--muted)');
 }
 
@@ -286,30 +363,29 @@ function deleteJob(id) {
 //  UPCOMING
 // ══════════════════════════════════════════
 function renderUpcoming() {
-  const today = new Date(); today.setHours(0,0,0,0);
   const sorted = jobs
     .filter(j => j.date && j.status !== 'done')
-    .sort((a,b) => a.date.localeCompare(b.date));
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const list  = document.getElementById('upcoming-list');
   const empty = document.getElementById('upcoming-empty');
 
-  if (!sorted.length) { list.innerHTML=''; empty.style.display=''; return; }
-  empty.style.display='none';
+  if (!sorted.length) { list.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
 
   list.innerHTML = sorted.map(j => {
     const d = daysUntil(j.date);
     let dclass, dlabel;
-    if (d < 0)      { dclass='overdue'; dlabel=`${Math.abs(d)}d overdue`; }
-    else if (d===0) { dclass='today';   dlabel='Today'; }
-    else if (d<=3)  { dclass='soon';    dlabel=`In ${d}d`; }
-    else            { dclass='future';  dlabel=`In ${d}d`; }
+    if      (d < 0)  { dclass = 'overdue'; dlabel = `${Math.abs(d)}d overdue`; }
+    else if (d === 0){ dclass = 'today';   dlabel = 'Today'; }
+    else if (d <= 3) { dclass = 'soon';    dlabel = `In ${d}d`; }
+    else             { dclass = 'future';  dlabel = `In ${d}d`; }
 
     return `<div class="tl-item" onclick="editJob('${j.id}')">
       <div class="tl-date">${fmtDate(j.date)}</div>
       <div class="tl-content">
-        <div class="tl-name">${j.name} ${j.ref ? `<span class="mono" style="font-size:11px;color:var(--muted)">· ${j.ref}</span>`:''}</div>
-        <div class="tl-detail">${j.address||''} ${j.products ? '· '+j.products.slice(0,60)+(j.products.length>60?'…':''):''}</div>
+        <div class="tl-name">${j.name}${j.ref ? ` <span class="mono" style="font-size:11px;color:var(--muted)">· ${j.ref}</span>` : ''}</div>
+        <div class="tl-detail">${j.address || ''}${j.products ? ' · ' + j.products.slice(0, 60) + (j.products.length > 60 ? '…' : '') : ''}</div>
       </div>
       ${statusBadge(j.status)}
       <div class="tl-days ${dclass}">${dlabel}</div>
@@ -317,6 +393,9 @@ function renderUpcoming() {
   }).join('');
 }
 
+// ══════════════════════════════════════════
+//  INSPECT
+// ══════════════════════════════════════════
 function addInspectItem() {
   const text = (document.getElementById('inspect-input').value || '').trim();
   if (!text) { toast('Inspection note is required.', 'var(--red)'); return; }
@@ -327,6 +406,10 @@ function addInspectItem() {
 
 function deleteInspect(id) {
   inspections = inspections.filter(i => i.id !== id);
+  if (supabaseClient) {
+    supabaseClient.from('inspections').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('Delete error:', error); });
+  }
   save(); renderInspect(); toast('Inspect item removed', 'var(--muted)');
 }
 
@@ -338,21 +421,20 @@ function toggleInspectDone(id) {
 }
 
 function renderInspect() {
-  const q = (document.getElementById('inspect-search')?.value || '').toLowerCase();
-  const list = document.getElementById('inspect-list');
-  const empty = document.getElementById('inspect-empty');
-
-  let filtered = inspections;
+  const q       = (document.getElementById('inspect-search')?.value || '').toLowerCase();
+  const list    = document.getElementById('inspect-list');
+  const empty   = document.getElementById('inspect-empty');
+  let filtered  = inspections;
   if (q) filtered = filtered.filter(i => i.text.toLowerCase().includes(q));
 
   if (!filtered.length) { list.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
 
   list.innerHTML = filtered.map(i => `
-    <div class="mini-job" style="justify-content: space-between;">
+    <div class="mini-job" style="justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:10px;flex:1;">
-        <input type="checkbox" ${i.done ? 'checked' : ''} onclick="toggleInspectDone('${i.id}')"> 
-        <span style="text-decoration:${i.done ? 'line-through' : 'none'};">${i.text}</span>
+        <input type="checkbox" ${i.done ? 'checked' : ''} onclick="toggleInspectDone('${i.id}')">
+        <span style="text-decoration:${i.done ? 'line-through' : 'none'};color:${i.done ? 'var(--muted)' : 'var(--text)'}">${i.text}</span>
       </div>
       <div class="action-row">
         <button class="btn btn-danger btn-sm" onclick="deleteInspect('${i.id}')">✕</button>
@@ -365,10 +447,10 @@ function renderInspect() {
 //  STOCK
 // ══════════════════════════════════════════
 function renderStock() {
-  const q = (document.getElementById('stock-search')?.value||'').toLowerCase();
-  const c = document.getElementById('stock-cat')?.value||'';
+  const q = (document.getElementById('stock-search')?.value || '').toLowerCase();
+  const c = document.getElementById('stock-cat')?.value || '';
   let filtered = stock.filter(s => {
-    const match = !q || s.name.toLowerCase().includes(q) || (s.sku||'').toLowerCase().includes(q);
+    const match = !q || s.name.toLowerCase().includes(q) || (s.sku || '').toLowerCase().includes(q);
     const cat   = !c || s.category === c;
     return match && cat;
   });
@@ -376,21 +458,21 @@ function renderStock() {
   const tbody = document.getElementById('stock-tbody');
   const empty = document.getElementById('stock-empty');
 
-  if (!filtered.length) { tbody.innerHTML=''; empty.style.display=''; return; }
-  empty.style.display='none';
+  if (!filtered.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
 
   tbody.innerHTML = filtered.map(s => {
     const low = s.qty <= s.min;
-    const pct = s.min > 0 ? Math.min(100, Math.round((s.qty/Math.max(s.min*2,s.qty))*100)) : 100;
+    const pct = s.min > 0 ? Math.min(100, Math.round((s.qty / Math.max(s.min * 2, s.qty)) * 100)) : 100;
     const barColor = low ? 'var(--red)' : (pct < 60 ? 'var(--amber)' : 'var(--green)');
     return `<tr>
       <td><strong>${s.name}</strong><div class="stock-bar"><div class="stock-fill" style="width:${pct}%;background:${barColor}"></div></div></td>
       <td><span class="chip">${s.category}</span></td>
-      <td><span class="mono">${s.sku||'—'}</span></td>
-      <td><span class="${low?'low-stock':'ok-stock'}" style="font-weight:600">${s.qty}</span></td>
+      <td><span class="mono">${s.sku || '—'}</span></td>
+      <td><span class="${low ? 'low-stock' : 'ok-stock'}" style="font-weight:600">${s.qty}</span></td>
       <td><span class="mono">${s.min}</span></td>
-      <td>${s.unit||'—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${s.supplier||'—'}</td>
+      <td>${s.unit || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${s.supplier || '—'}</td>
       <td><div class="action-row">
         <button class="btn btn-ghost btn-sm" onclick="adjustStock('${s.id}')">±</button>
         <button class="btn btn-ghost btn-sm" onclick="editStock('${s.id}')">Edit</button>
@@ -408,7 +490,7 @@ function adjustStock(id) {
   const n = parseInt(v);
   if (isNaN(n) || n < 0) { toast('Invalid quantity', 'var(--red)'); return; }
   s.qty = n; save(); renderStock(); renderDashboard();
-  toast(`Stock updated: ${n} ${s.unit||'units'}`);
+  toast(`Stock updated: ${n} ${s.unit || 'units'}`);
 }
 
 function openStockModal(id) {
@@ -417,15 +499,15 @@ function openStockModal(id) {
   if (id) {
     const s = stock.find(x => x.id === id);
     if (!s) return;
-    document.getElementById('s-name').value     = s.name||'';
-    document.getElementById('s-cat').value      = s.category||'Window Unit';
-    document.getElementById('s-sku').value      = s.sku||'';
-    document.getElementById('s-qty').value      = s.qty??0;
-    document.getElementById('s-min').value      = s.min??2;
-    document.getElementById('s-unit').value     = s.unit||'';
-    document.getElementById('s-supplier').value = s.supplier||'';
+    document.getElementById('s-name').value     = s.name     || '';
+    document.getElementById('s-cat').value      = s.category || 'Window Unit';
+    document.getElementById('s-sku').value      = s.sku      || '';
+    document.getElementById('s-qty').value      = s.qty      ?? 0;
+    document.getElementById('s-min').value      = s.min      ?? 2;
+    document.getElementById('s-unit').value     = s.unit     || '';
+    document.getElementById('s-supplier').value = s.supplier || '';
   } else {
-    ['s-name','s-sku','s-unit','s-supplier'].forEach(id => document.getElementById(id).value='');
+    ['s-name','s-sku','s-unit','s-supplier'].forEach(fid => document.getElementById(fid).value = '');
     document.getElementById('s-qty').value = 0;
     document.getElementById('s-min').value = 2;
     document.getElementById('s-cat').value = 'Window Unit';
@@ -451,7 +533,9 @@ function saveStock() {
     stock.push({ id: uid(), ...getStockForm() });
     toast('Item added ✓');
   }
-  save(); document.getElementById('stock-overlay').classList.remove('open'); renderStock(); renderDashboard();
+  save();
+  document.getElementById('stock-overlay').classList.remove('open');
+  renderStock(); renderDashboard();
 }
 
 function getStockForm() {
@@ -459,8 +543,8 @@ function getStockForm() {
     name:     document.getElementById('s-name').value.trim(),
     category: document.getElementById('s-cat').value,
     sku:      document.getElementById('s-sku').value.trim(),
-    qty:      parseInt(document.getElementById('s-qty').value)||0,
-    min:      parseInt(document.getElementById('s-min').value)||0,
+    qty:      parseInt(document.getElementById('s-qty').value)  || 0,
+    min:      parseInt(document.getElementById('s-min').value)  || 0,
     unit:     document.getElementById('s-unit').value.trim(),
     supplier: document.getElementById('s-supplier').value.trim(),
   };
@@ -469,9 +553,20 @@ function getStockForm() {
 function deleteStock(id) {
   if (!confirm('Delete this stock item?')) return;
   stock = stock.filter(s => s.id !== id);
+  if (supabaseClient) {
+    supabaseClient.from('stock').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('Delete error:', error); });
+  }
   save(); renderStock(); renderDashboard();
   toast('Item deleted', 'var(--muted)');
 }
+
+// ══════════════════════════════════════════
+//  BROWSER BACK BUTTON SUPPORT
+// ══════════════════════════════════════════
+window.addEventListener('popstate', (e) => {
+  if (e.state?.page) showPage(e.state.page, false);
+});
 
 // ══════════════════════════════════════════
 //  INIT
@@ -479,6 +574,8 @@ function deleteStock(id) {
 window.addEventListener('DOMContentLoaded', () => {
   initSupabase();
   renderDashboard();
-  // Optional: auto-load from Supabase on page open
+  // Auto-load from Supabase on open
   loadSupabase();
+  // Show back button state
+  updateBackButton();
 });

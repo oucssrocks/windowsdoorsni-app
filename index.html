@@ -10,7 +10,10 @@
 </head><body>
 
 <header>
-  <div class="logo">Windows&DoorsNI<span> Jobs</span></div>
+  <div class="header-left">
+    <button class="back-btn" id="back-btn" onclick="goBack()" style="display:none" aria-label="Go back">← Back</button>
+    <div class="logo">Windows&DoorsNI<span> Jobs</span></div>
+  </div>
   <button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
   <nav class="nav">
     <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
@@ -19,6 +22,11 @@
     <button class="nav-btn" onclick="showPage('stock')">Stock</button>
     <button class="nav-btn" onclick="showPage('inspect')">Inspect</button>
   </nav>
+  <div class="header-right">
+    <span id="sync-status" class="sync-status">● Synced</span>
+    <button class="btn btn-sm btn-ghost" onclick="loadSupabase()">↓ Load</button>
+    <button class="btn btn-sm btn-primary" onclick="syncSupabase()">↑ Sync</button>
+  </div>
 </header>
 
 <main>
@@ -28,10 +36,6 @@
     <div class="section-head" style="margin-bottom:24px">
       <h1 class="section-title">Overview</h1>
       <span id="dash-date" style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace"></span>
-      <div>
-        <button class="btn btn-sm btn-ghost" onclick="loadSupabase()">Load Supabase</button>
-        <button class="btn btn-sm btn-primary" onclick="syncSupabase()">Sync to Supabase</button>
-      </div>
     </div>
 
     <div class="kpi-row" id="kpi-row"></div>
