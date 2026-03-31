@@ -1,0 +1,8 @@
+# Ignore Supabase installers
+*.deb
+
+# Ignore local SQL backups
+*.sql
+
+# Ignore Wrangler/Cloudflare logs
+.wrangler/

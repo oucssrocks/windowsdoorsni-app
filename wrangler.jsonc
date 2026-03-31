@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "windowsdoorsni-app",
+  "compatibility_date": "2025-09-27",
+  "assets": {
+    "directory": ".",
+    "exclude": ["*.deb", "*.sql", ".gitignore", "wrangler.jsonc"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
